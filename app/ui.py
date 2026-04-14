@@ -27,6 +27,8 @@ class AppUI:
         self.url_var = tk.StringVar()
         self.word_file_var = tk.StringVar()
         self.output_dir_var = tk.StringVar(value=str(Path.cwd()))
+        self.download_progress_var = tk.DoubleVar(value=0.0)
+        self.download_progress_text_var = tk.StringVar(value="Download: in attesa")
 
         self._build_layout()
 
@@ -63,19 +65,36 @@ class AppUI:
         self.start_btn = ttk.Button(frame, text="Scarica e genera metadata", command=self.start_process)
         self.start_btn.grid(row=7, column=0, columnspan=2, sticky="ew", **padding)
 
+        self.progress_bar = ttk.Progressbar(
+            frame,
+            orient="horizontal",
+            mode="determinate",
+            maximum=100,
+            variable=self.download_progress_var,
+        )
+        self.progress_bar.grid(row=8, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 4))
+        ttk.Label(frame, textvariable=self.download_progress_text_var).grid(
+            row=9,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            padx=12,
+            pady=(0, 8),
+        )
+
         ttk.Label(
             frame,
             text="Nota: usa questo tool nel rispetto dei termini YouTube e dei diritti d'autore.",
             foreground="#7a5800",
-        ).grid(row=8, column=0, columnspan=2, sticky="w", **padding)
+        ).grid(row=10, column=0, columnspan=2, sticky="w", **padding)
 
-        ttk.Label(frame, text="Log").grid(row=9, column=0, sticky="w", **padding)
+        ttk.Label(frame, text="Log").grid(row=11, column=0, sticky="w", **padding)
         self.log = tk.Text(frame, height=12, state="disabled")
-        self.log.grid(row=10, column=0, columnspan=2, sticky="nsew", padx=12, pady=(0, 12))
+        self.log.grid(row=12, column=0, columnspan=2, sticky="nsew", padx=12, pady=(0, 12))
 
         frame.columnconfigure(0, weight=1)
         frame.columnconfigure(1, weight=0)
-        frame.rowconfigure(10, weight=1)
+        frame.rowconfigure(12, weight=1)
 
     def _setup_drag_and_drop(self):
         if not DND_ENABLED:
@@ -139,6 +158,7 @@ class AppUI:
             return
 
         self.start_btn.config(state="disabled")
+        self._set_download_progress(0.0, "Download: avvio...")
         self._append_log("Avvio processamento...\n")
 
         worker = threading.Thread(
@@ -179,7 +199,14 @@ class AppUI:
                 metadata = youtube_service.extract_metadata(current_url)
 
                 self._append_log(f"[{index}/{len(items_to_process)}] Download video: {metadata.title}\n")
-                video_path = youtube_service.download_mp4(metadata)
+                self._set_download_progress(0.0, f"Download [{index}/{len(items_to_process)}]: avvio {metadata.title}")
+                video_path = youtube_service.download_mp4(
+                    metadata,
+                    progress_callback=lambda percent, i=index, total=len(items_to_process), title=metadata.title: self._set_download_progress(
+                        percent,
+                        f"Download [{i}/{total}] {title}: {percent:.1f}%",
+                    ),
+                )
                 metadata.output_file_path = video_path
                 metadata.output_file_name = video_path.name
 
@@ -193,6 +220,7 @@ class AppUI:
                     pptx_name=pptx_name,
                 )
 
+            self._set_download_progress(100.0, "Download completato")
             self._append_log(f"Completato.\nPPTX: {pptx_path}\n")
             self.root.after(0, lambda: messagebox.showinfo("Successo", "Download e generazione metadata completati."))
         except Exception as exc:
@@ -200,6 +228,15 @@ class AppUI:
             self.root.after(0, lambda err=exc: messagebox.showerror("Errore", str(err)))
         finally:
             self.root.after(0, lambda: self.start_btn.config(state="normal"))
+
+    def _set_download_progress(self, percent: float, text: str):
+        safe_percent = max(0.0, min(100.0, percent))
+
+        def update_progress():
+            self.download_progress_var.set(safe_percent)
+            self.download_progress_text_var.set(text)
+
+        self.root.after(0, update_progress)
 
     def _append_log(self, message: str):
         def update_text():
