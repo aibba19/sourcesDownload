@@ -17,7 +17,7 @@ def _add_hyperlink(paragraph, text: str, url: str):
 
 
 class PptxService:
-    def build_metadata_pptx(self, metadata: VideoMetadata, output_dir: Path) -> Path:
+    def build_metadata_pptx(self, metadata: VideoMetadata, output_dir: Path, slide_title: str | None = None) -> Path:
         pptx_path = output_dir / "fonti.pptx"
         if pptx_path.exists():
             presentation = Presentation(pptx_path)
@@ -28,7 +28,7 @@ class PptxService:
         slide = presentation.slides.add_slide(slide_layout)
 
         title_box = slide.shapes.title
-        title_box.text = "Video Metadata"
+        title_box.text = slide_title or "Video Metadata"
 
         text_box = slide.shapes.add_textbox(Pt(40), Pt(100), Pt(880), Pt(360))
         text_frame = text_box.text_frame

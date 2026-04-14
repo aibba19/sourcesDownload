@@ -4,6 +4,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from app.services.pptx_service import PptxService
+from app.services.word_service import WordService
 from app.services.youtube_service import YouTubeService
 from app.utils.validators import is_supported_youtube_url
 
@@ -12,9 +13,10 @@ class AppUI:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("YouTube Downloader + Metadata PPTX")
-        self.root.geometry("760x420")
+        self.root.geometry("860x500")
 
         self.url_var = tk.StringVar()
+        self.word_file_var = tk.StringVar()
         self.output_dir_var = tk.StringVar(value=str(Path.cwd()))
 
         self._build_layout()
@@ -25,29 +27,42 @@ class AppUI:
         frame = ttk.Frame(self.root)
         frame.pack(fill="both", expand=True)
 
-        ttk.Label(frame, text="Link YouTube").grid(row=0, column=0, sticky="w", **padding)
+        ttk.Label(frame, text="Link YouTube (opzionale)").grid(row=0, column=0, sticky="w", **padding)
         ttk.Entry(frame, textvariable=self.url_var, width=80).grid(row=1, column=0, columnspan=2, sticky="ew", **padding)
 
-        ttk.Label(frame, text="Cartella di output").grid(row=2, column=0, sticky="w", **padding)
-        ttk.Entry(frame, textvariable=self.output_dir_var, width=65).grid(row=3, column=0, sticky="ew", **padding)
-        ttk.Button(frame, text="Sfoglia", command=self.pick_output_dir).grid(row=3, column=1, sticky="ew", **padding)
+        ttk.Label(frame, text="File Word .docx (opzionale)").grid(row=2, column=0, sticky="w", **padding)
+        ttk.Entry(frame, textvariable=self.word_file_var, width=65).grid(row=3, column=0, sticky="ew", **padding)
+        ttk.Button(frame, text="Sfoglia", command=self.pick_word_file).grid(row=3, column=1, sticky="ew", **padding)
+
+        ttk.Label(frame, text="Cartella di output").grid(row=4, column=0, sticky="w", **padding)
+        ttk.Entry(frame, textvariable=self.output_dir_var, width=65).grid(row=5, column=0, sticky="ew", **padding)
+        ttk.Button(frame, text="Sfoglia", command=self.pick_output_dir).grid(row=5, column=1, sticky="ew", **padding)
 
         self.start_btn = ttk.Button(frame, text="Scarica e genera metadata", command=self.start_process)
-        self.start_btn.grid(row=4, column=0, columnspan=2, sticky="ew", **padding)
+        self.start_btn.grid(row=6, column=0, columnspan=2, sticky="ew", **padding)
 
         ttk.Label(
             frame,
             text="Nota: usa questo tool nel rispetto dei termini YouTube e dei diritti d'autore.",
             foreground="#7a5800",
-        ).grid(row=5, column=0, columnspan=2, sticky="w", **padding)
+        ).grid(row=7, column=0, columnspan=2, sticky="w", **padding)
 
-        ttk.Label(frame, text="Log").grid(row=6, column=0, sticky="w", **padding)
-        self.log = tk.Text(frame, height=10, state="disabled")
-        self.log.grid(row=7, column=0, columnspan=2, sticky="nsew", padx=12, pady=(0, 12))
+        ttk.Label(frame, text="Log").grid(row=8, column=0, sticky="w", **padding)
+        self.log = tk.Text(frame, height=12, state="disabled")
+        self.log.grid(row=9, column=0, columnspan=2, sticky="nsew", padx=12, pady=(0, 12))
 
         frame.columnconfigure(0, weight=1)
         frame.columnconfigure(1, weight=0)
-        frame.rowconfigure(7, weight=1)
+        frame.rowconfigure(9, weight=1)
+
+    def pick_word_file(self):
+        selected = filedialog.askopenfilename(
+            title="Seleziona file Word",
+            filetypes=[("Word files", "*.docx")],
+            initialdir=str(Path.cwd()),
+        )
+        if selected:
+            self.word_file_var.set(selected)
 
     def pick_output_dir(self):
         selected = filedialog.askdirectory(initialdir=self.output_dir_var.get() or str(Path.cwd()))
@@ -56,10 +71,23 @@ class AppUI:
 
     def start_process(self):
         url = self.url_var.get().strip()
+        word_file = self.word_file_var.get().strip()
         output_dir = self.output_dir_var.get().strip()
 
-        if not is_supported_youtube_url(url):
+        if not url and not word_file:
+            messagebox.showerror("Input mancante", "Inserisci un link YouTube oppure seleziona un file Word .docx.")
+            return
+
+        if url and not is_supported_youtube_url(url):
             messagebox.showerror("URL non valido", "Inserisci un link YouTube valido (youtube.com o youtu.be).")
+            return
+
+        if word_file and not Path(word_file).exists():
+            messagebox.showerror("File mancante", "Il file Word selezionato non esiste.")
+            return
+
+        if word_file and Path(word_file).suffix.lower() != ".docx":
+            messagebox.showerror("Formato non valido", "Seleziona un file Word con estensione .docx.")
             return
 
         if not output_dir:
@@ -69,26 +97,48 @@ class AppUI:
         self.start_btn.config(state="disabled")
         self._append_log("Avvio processamento...\n")
 
-        worker = threading.Thread(target=self._run_pipeline, args=(url, Path(output_dir)), daemon=True)
+        worker = threading.Thread(
+            target=self._run_pipeline,
+            args=(url, Path(word_file) if word_file else None, Path(output_dir)),
+            daemon=True,
+        )
         worker.start()
 
-    def _run_pipeline(self, url: str, output_dir: Path):
+    def _run_pipeline(self, url: str, word_path: Path | None, output_dir: Path):
         try:
             youtube_service = YouTubeService(output_dir=output_dir)
+            word_service = WordService()
             pptx_service = PptxService()
 
-            self._append_log("Estrazione metadati...\n")
-            metadata = youtube_service.extract_metadata(url)
+            items_to_process: list[tuple[str, str]] = []
 
-            self._append_log(f"Download video: {metadata.title}\n")
-            video_path = youtube_service.download_mp4(metadata)
-            metadata.output_file_path = video_path
-            metadata.output_file_name = video_path.name
+            if url:
+                items_to_process.append((url, "Video Metadata"))
 
-            self._append_log("Generazione PowerPoint metadati...\n")
-            pptx_path = pptx_service.build_metadata_pptx(metadata, output_dir)
+            if word_path:
+                self._append_log(f"Analisi Word: {word_path}\n")
+                links = word_service.extract_youtube_links(word_path)
+                if not links:
+                    self._append_log("Nessun link YouTube trovato nella seconda colonna delle tabelle.\n")
+                for row_number, link in links:
+                    items_to_process.append((link, f"Slide {row_number}"))
 
-            self._append_log(f"Completato.\nVideo: {video_path}\nPPTX: {pptx_path}\n")
+            if not items_to_process:
+                raise ValueError("Nessun link YouTube valido da processare.")
+
+            for index, (current_url, slide_title) in enumerate(items_to_process, start=1):
+                self._append_log(f"[{index}/{len(items_to_process)}] Estrazione metadati... {current_url}\n")
+                metadata = youtube_service.extract_metadata(current_url)
+
+                self._append_log(f"[{index}/{len(items_to_process)}] Download video: {metadata.title}\n")
+                video_path = youtube_service.download_mp4(metadata)
+                metadata.output_file_path = video_path
+                metadata.output_file_name = video_path.name
+
+                self._append_log(f"[{index}/{len(items_to_process)}] Aggiornamento PowerPoint ({slide_title})...\n")
+                pptx_path = pptx_service.build_metadata_pptx(metadata, output_dir, slide_title=slide_title)
+
+            self._append_log(f"Completato.\nPPTX: {pptx_path}\n")
             self.root.after(0, lambda: messagebox.showinfo("Successo", "Download e generazione metadata completati."))
         except Exception as exc:
             self._append_log(f"Errore: {exc}\n")
