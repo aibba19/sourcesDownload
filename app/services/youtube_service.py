@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from pathlib import Path
 
 from yt_dlp import YoutubeDL
@@ -43,8 +44,29 @@ class YouTubeService:
             output_file_path=self.output_dir / file_name,
         )
 
-    def download_mp4(self, metadata: VideoMetadata) -> Path:
+    def download_mp4(self, metadata: VideoMetadata, progress_callback: Callable[[float], None] | None = None) -> Path:
         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        def report_progress(download_status: dict):
+            if progress_callback is None:
+                return
+
+            status = download_status.get("status")
+            if status == "finished":
+                progress_callback(100.0)
+                return
+
+            if status != "downloading":
+                return
+
+            downloaded = download_status.get("downloaded_bytes")
+            total = download_status.get("total_bytes") or download_status.get("total_bytes_estimate")
+
+            if not downloaded or not total:
+                return
+
+            percentage = (downloaded / total) * 100
+            progress_callback(percentage)
 
         output_template = str(self.output_dir / "%(title)s.%(ext)s")
         options = {
@@ -55,6 +77,7 @@ class YouTubeService:
             "quiet": True,
             "no_warnings": False,
             "restrictfilenames": False,
+            "progress_hooks": [report_progress],
         }
 
         with YoutubeDL(options) as ydl:

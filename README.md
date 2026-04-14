@@ -20,6 +20,17 @@ pip install -r requirements.txt
 python -m app.main
 ```
 
+## Avvio senza linea di comando (Windows)
+- Doppio click su `run_app.vbs` per avviare l'interfaccia senza aprire il terminale.
+- Richiede un ambiente `.venv` già creato con le dipendenze installate.
+
+## Creazione eseguibile Windows (.exe)
+Puoi generare un eseguibile standalone con:
+```bat
+build_exe.bat
+```
+L'exe verrà creato in `dist\sourcesDownload.exe` e potrà essere avviato con doppio click.
+
 ## Cosa fa il tool
 - Accetta in input:
   - un link YouTube dalla UI
