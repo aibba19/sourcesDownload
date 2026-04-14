@@ -197,7 +197,7 @@ class AppUI:
             self.root.after(0, lambda: messagebox.showinfo("Successo", "Download e generazione metadata completati."))
         except Exception as exc:
             self._append_log(f"Errore: {exc}\n")
-            self.root.after(0, lambda: messagebox.showerror("Errore", str(exc)))
+            self.root.after(0, lambda err=exc: messagebox.showerror("Errore", str(err)))
         finally:
             self.root.after(0, lambda: self.start_btn.config(state="normal"))
 
