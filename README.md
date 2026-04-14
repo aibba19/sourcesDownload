@@ -28,9 +28,12 @@ python -m app.main
 - Per i file Word:
   - cerca i link YouTube nella seconda colonna di tutte le tabelle
   - per ogni link trovato crea una slide con titolo `Slide X` dove `X` è il numero di riga nella tabella
+  - puoi trascinare il file `.docx` direttamente nell'area drag&drop della UI
 - Estrae metadati via `yt-dlp`
 - Scarica MP4 (best <= 1080p)
-- Crea/aggiorna `fonti.pptx` con una nuova slide per ogni video:
+- Crea/aggiorna un PPTX con una nuova slide per ogni video:
+  - se usi un file Word: `fonti-<nomefileword>.pptx`
+  - se usi solo URL manuale: `fonti.pptx`
   - nome file
   - titolo
   - link video

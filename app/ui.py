@@ -6,14 +6,23 @@ from tkinter import filedialog, messagebox, ttk
 from app.services.pptx_service import PptxService
 from app.services.word_service import WordService
 from app.services.youtube_service import YouTubeService
+from app.utils.filename import sanitize_filename
 from app.utils.validators import is_supported_youtube_url
+
+try:
+    from tkinterdnd2 import DND_FILES
+
+    DND_ENABLED = True
+except Exception:
+    DND_FILES = None
+    DND_ENABLED = False
 
 
 class AppUI:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("YouTube Downloader + Metadata PPTX")
-        self.root.geometry("860x500")
+        self.root.geometry("860x560")
 
         self.url_var = tk.StringVar()
         self.word_file_var = tk.StringVar()
@@ -31,29 +40,64 @@ class AppUI:
         ttk.Entry(frame, textvariable=self.url_var, width=80).grid(row=1, column=0, columnspan=2, sticky="ew", **padding)
 
         ttk.Label(frame, text="File Word .docx (opzionale)").grid(row=2, column=0, sticky="w", **padding)
-        ttk.Entry(frame, textvariable=self.word_file_var, width=65).grid(row=3, column=0, sticky="ew", **padding)
+        self.word_entry = ttk.Entry(frame, textvariable=self.word_file_var, width=65)
+        self.word_entry.grid(row=3, column=0, sticky="ew", **padding)
         ttk.Button(frame, text="Sfoglia", command=self.pick_word_file).grid(row=3, column=1, sticky="ew", **padding)
 
-        ttk.Label(frame, text="Cartella di output").grid(row=4, column=0, sticky="w", **padding)
-        ttk.Entry(frame, textvariable=self.output_dir_var, width=65).grid(row=5, column=0, sticky="ew", **padding)
-        ttk.Button(frame, text="Sfoglia", command=self.pick_output_dir).grid(row=5, column=1, sticky="ew", **padding)
+        self.drop_label = tk.Label(
+            frame,
+            text="Trascina qui il file Word (.docx)",
+            relief="groove",
+            bd=1,
+            padx=10,
+            pady=12,
+            bg="#f2f4f7",
+        )
+        self.drop_label.grid(row=4, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 8))
+        self._setup_drag_and_drop()
+
+        ttk.Label(frame, text="Cartella di output").grid(row=5, column=0, sticky="w", **padding)
+        ttk.Entry(frame, textvariable=self.output_dir_var, width=65).grid(row=6, column=0, sticky="ew", **padding)
+        ttk.Button(frame, text="Sfoglia", command=self.pick_output_dir).grid(row=6, column=1, sticky="ew", **padding)
 
         self.start_btn = ttk.Button(frame, text="Scarica e genera metadata", command=self.start_process)
-        self.start_btn.grid(row=6, column=0, columnspan=2, sticky="ew", **padding)
+        self.start_btn.grid(row=7, column=0, columnspan=2, sticky="ew", **padding)
 
         ttk.Label(
             frame,
             text="Nota: usa questo tool nel rispetto dei termini YouTube e dei diritti d'autore.",
             foreground="#7a5800",
-        ).grid(row=7, column=0, columnspan=2, sticky="w", **padding)
+        ).grid(row=8, column=0, columnspan=2, sticky="w", **padding)
 
-        ttk.Label(frame, text="Log").grid(row=8, column=0, sticky="w", **padding)
+        ttk.Label(frame, text="Log").grid(row=9, column=0, sticky="w", **padding)
         self.log = tk.Text(frame, height=12, state="disabled")
-        self.log.grid(row=9, column=0, columnspan=2, sticky="nsew", padx=12, pady=(0, 12))
+        self.log.grid(row=10, column=0, columnspan=2, sticky="nsew", padx=12, pady=(0, 12))
 
         frame.columnconfigure(0, weight=1)
         frame.columnconfigure(1, weight=0)
-        frame.rowconfigure(9, weight=1)
+        frame.rowconfigure(10, weight=1)
+
+    def _setup_drag_and_drop(self):
+        if not DND_ENABLED:
+            self.drop_label.config(text="Drag & drop non disponibile (installa/abilita tkinterdnd2)")
+            return
+
+        for widget in (self.drop_label, self.word_entry):
+            widget.drop_target_register(DND_FILES)
+            widget.dnd_bind("<<Drop>>", self._on_drop_word_file)
+
+    def _on_drop_word_file(self, event):
+        dropped = self.root.tk.splitlist(event.data)
+        if not dropped:
+            return
+
+        dropped_path = Path(dropped[0])
+        if dropped_path.suffix.lower() != ".docx":
+            messagebox.showerror("Formato non valido", "Trascina un file Word con estensione .docx")
+            return
+
+        self.word_file_var.set(str(dropped_path))
+        self._append_log(f"File Word selezionato via drag&drop: {dropped_path}\n")
 
     def pick_word_file(self):
         selected = filedialog.askopenfilename(
@@ -111,6 +155,10 @@ class AppUI:
             pptx_service = PptxService()
 
             items_to_process: list[tuple[str, str]] = []
+            pptx_name = "fonti.pptx"
+
+            if word_path:
+                pptx_name = f"fonti-{sanitize_filename(word_path.stem)}.pptx"
 
             if url:
                 items_to_process.append((url, "Video Metadata"))
@@ -135,8 +183,15 @@ class AppUI:
                 metadata.output_file_path = video_path
                 metadata.output_file_name = video_path.name
 
-                self._append_log(f"[{index}/{len(items_to_process)}] Aggiornamento PowerPoint ({slide_title})...\n")
-                pptx_path = pptx_service.build_metadata_pptx(metadata, output_dir, slide_title=slide_title)
+                self._append_log(
+                    f"[{index}/{len(items_to_process)}] Aggiornamento PowerPoint ({slide_title}) su {pptx_name}...\n"
+                )
+                pptx_path = pptx_service.build_metadata_pptx(
+                    metadata,
+                    output_dir,
+                    slide_title=slide_title,
+                    pptx_name=pptx_name,
+                )
 
             self._append_log(f"Completato.\nPPTX: {pptx_path}\n")
             self.root.after(0, lambda: messagebox.showinfo("Successo", "Download e generazione metadata completati."))

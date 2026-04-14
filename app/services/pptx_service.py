@@ -17,8 +17,17 @@ def _add_hyperlink(paragraph, text: str, url: str):
 
 
 class PptxService:
-    def build_metadata_pptx(self, metadata: VideoMetadata, output_dir: Path, slide_title: str | None = None) -> Path:
-        pptx_path = output_dir / "fonti.pptx"
+    def build_metadata_pptx(
+        self,
+        metadata: VideoMetadata,
+        output_dir: Path,
+        slide_title: str | None = None,
+        pptx_name: str = "fonti.pptx",
+    ) -> Path:
+        if not pptx_name.lower().endswith(".pptx"):
+            pptx_name = f"{pptx_name}.pptx"
+
+        pptx_path = output_dir / pptx_name
         if pptx_path.exists():
             presentation = Presentation(pptx_path)
         else:
