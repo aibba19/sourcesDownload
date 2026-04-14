@@ -24,7 +24,7 @@ python -m app.main
 - Valida URL YouTube (`youtube.com`, `youtu.be`)
 - Estrae metadati via `yt-dlp`
 - Scarica MP4 (best <= 1080p)
-- Crea `*_metadata.pptx` con:
+- Crea/aggiorna `fonti.pptx` con una nuova slide per ogni video:
   - nome file
   - titolo
   - link video

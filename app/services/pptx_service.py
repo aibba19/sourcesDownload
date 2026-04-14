@@ -1,4 +1,4 @@
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 
 from pptx import Presentation
@@ -18,7 +18,12 @@ def _add_hyperlink(paragraph, text: str, url: str):
 
 class PptxService:
     def build_metadata_pptx(self, metadata: VideoMetadata, output_dir: Path) -> Path:
-        presentation = Presentation()
+        pptx_path = output_dir / "fonti.pptx"
+        if pptx_path.exists():
+            presentation = Presentation(pptx_path)
+        else:
+            presentation = Presentation()
+
         slide_layout = presentation.slide_layouts[5]
         slide = presentation.slides.add_slide(slide_layout)
 
@@ -54,6 +59,5 @@ class PptxService:
             channel_paragraph.add_run().text = "Non disponibile"
         channel_paragraph.font.size = Pt(20)
 
-        pptx_path = output_dir / f"{Path(metadata.output_file_name).stem}_metadata.pptx"
         presentation.save(pptx_path)
         return pptx_path
