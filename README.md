@@ -41,7 +41,7 @@ L'exe verrà creato in `dist\sourcesDownload.exe` e potrà essere avviato con do
   - per ogni link trovato crea una slide con titolo `Slide X` dove `X` è il numero di riga nella tabella
   - puoi trascinare il file `.docx` direttamente nell'area drag&drop della UI
 - Estrae metadati via `yt-dlp`
-- Scarica MP4 (best <= 1080p)
+- Scarica MP4 nella migliore qualità disponibile per il video
 - Crea/aggiorna un PPTX con una nuova slide per ogni video:
   - se usi un file Word: `fonti-<nomefileword>.pptx`
   - se usi solo URL manuale: `fonti.pptx`

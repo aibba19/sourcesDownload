@@ -8,9 +8,8 @@ from app.utils.filename import sanitize_filename
 
 
 class YouTubeService:
-    def __init__(self, output_dir: Path, max_height: int = 1080):
+    def __init__(self, output_dir: Path):
         self.output_dir = output_dir
-        self.max_height = max_height
 
     def extract_metadata(self, url: str) -> VideoMetadata:
         options = {
@@ -71,7 +70,7 @@ class YouTubeService:
         output_template = str(self.output_dir / "%(title)s.%(ext)s")
         options = {
             "outtmpl": output_template,
-            "format": f"bestvideo[height<={self.max_height}][ext=mp4]+bestaudio[ext=m4a]/best[height<={self.max_height}][ext=mp4]/best",
+            "format": "bestvideo+bestaudio/best",
             "merge_output_format": "mp4",
             "noplaylist": True,
             "quiet": True,
