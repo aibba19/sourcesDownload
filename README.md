@@ -20,6 +20,17 @@ pip install -r requirements.txt
 python -m app.main
 ```
 
+## Avvio senza linea di comando (Windows)
+- Doppio click su `run_app.vbs` per avviare l'interfaccia senza aprire il terminale.
+- Richiede un ambiente `.venv` già creato con le dipendenze installate.
+
+## Creazione eseguibile Windows (.exe)
+Puoi generare un eseguibile standalone con:
+```bat
+build_exe.bat
+```
+L'exe verrà creato in `dist\sourcesDownload.exe` e potrà essere avviato con doppio click.
+
 ## Cosa fa il tool
 - Accetta in input:
   - un link YouTube dalla UI
@@ -30,7 +41,7 @@ python -m app.main
   - per ogni link trovato crea una slide con titolo `Slide X` dove `X` è il numero di riga nella tabella
   - puoi trascinare il file `.docx` direttamente nell'area drag&drop della UI
 - Estrae metadati via `yt-dlp`
-- Scarica MP4 (best <= 1080p)
+- Scarica MP4 nella migliore qualità disponibile per il video
 - Crea/aggiorna un PPTX con una nuova slide per ogni video:
   - se usi un file Word: `fonti-<nomefileword>.pptx`
   - se usi solo URL manuale: `fonti.pptx`
